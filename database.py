@@ -1,3 +1,4 @@
+from postgres_backend import DATABASE_URL, PostgresConnection
 from hosting_config import DB_FILE, DATA_DIR
 
 import sqlite3
@@ -62,7 +63,15 @@ TABLE_COLUMNS = {
 # DATABASE CONNECTION
 # --------------------------------------------------
 
+def insert_id(conn, query, params):
+    if isinstance(conn, PostgresConnection):
+        return conn.insert_id(query, params)
+    return conn.execute(query, params).lastrowid
+
+
 def get_connection():
+    if DATABASE_URL:
+        return PostgresConnection()
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -231,7 +240,7 @@ def add_record(table, data):
     values = [data[column] for column in columns]
 
     with get_connection() as conn:
-        cursor = conn.execute(
+        record_id = insert_id(conn,
             f"""
             INSERT INTO "{table}" ({column_names})
             VALUES ({placeholders})
@@ -241,7 +250,7 @@ def add_record(table, data):
 
         conn.commit()
 
-        return cursor.lastrowid
+        return record_id
 
 
 # --------------------------------------------------
@@ -328,7 +337,7 @@ def save_contact_message(name, email, message, subject=""):
     submitted_at = datetime.now(timezone.utc).isoformat()
 
     with get_connection() as conn:
-        cursor = conn.execute(
+        record_id = insert_id(conn,
             """
             INSERT INTO contact_messages (
                 visitor_name,
@@ -353,7 +362,7 @@ def save_contact_message(name, email, message, subject=""):
         )
 
         conn.commit()
-        return cursor.lastrowid
+        return record_id
 
 
 

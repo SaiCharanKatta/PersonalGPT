@@ -1,15 +1,11 @@
-from hosting_config import DB_FILE, DATA_DIR
+import database
+from postgres_backend import DATABASE_URL, SCHEMA
 
 import streamlit as st
-import sqlite3
 import json
 import os
 import re
 from datetime import datetime
-
-DB_PATH = (
-    str(DB_FILE)
-)
 
 MODEL_NAME = "gemini-3.5-flash-lite"
 
@@ -34,13 +30,18 @@ PROFILE_FIELDS = {
 }
 
 def connection():
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+    return database.get_connection()
 
 
 def table_columns(conn, table):
+    if DATABASE_URL:
+        return {
+            row["column_name"]: row
+            for row in conn.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = ? AND table_name = ?", (SCHEMA, table)
+            )
+        }
     return {
         row["name"]: row
         for row in conn.execute(
@@ -341,7 +342,8 @@ def apply_operations(proposal_id, proposal, username):
         for operation in operations:
             validate_operation(conn, operation)
 
-        conn.execute("BEGIN IMMEDIATE")
+        if not DATABASE_URL:
+            conn.execute("BEGIN IMMEDIATE")
 
         for operation in operations:
             kind = operation["type"]
@@ -469,7 +471,7 @@ def apply_operations(proposal_id, proposal, username):
                         setting_value=excluded.setting_value,
                         updated_at=CURRENT_TIMESTAMP
                     """,
-                    (operation["value"],)
+                    ("theme" if kind == "set_theme" else "accent_color", operation["value"])
                 )
 
         conn.execute(
@@ -511,7 +513,7 @@ def save_proposal(request_text, proposal):
     conn = connection()
 
     try:
-        cursor = conn.execute(
+        proposal_id = database.insert_id(conn,
             """
             INSERT INTO admin_ai_proposals
             (request_text, proposal_json, preview_text, status)
@@ -523,8 +525,6 @@ def save_proposal(request_text, proposal):
                 proposal.get("preview", ""),
             )
         )
-
-        proposal_id = cursor.lastrowid
 
         conn.execute(
             """
