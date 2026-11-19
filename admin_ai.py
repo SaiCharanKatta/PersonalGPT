@@ -513,6 +513,12 @@ def save_proposal(request_text, proposal):
     conn = connection()
 
     try:
+        # Keep PostgreSQL's sequence aligned with existing imported/manual rows.
+        try:
+            conn.execute("SELECT setval(pg_get_serial_sequence('admin_ai_proposals','id'), COALESCE((SELECT MAX(id) FROM admin_ai_proposals), 0) + 1, false)")
+        except Exception:
+            pass
+
         proposal_id = database.insert_id(conn,
             """
             INSERT INTO admin_ai_proposals
@@ -608,15 +614,6 @@ def render_admin_ai():
     st.caption(
         "Private workspace · Draft changes · Review · Approve to publish"
     )
-
-    with st.expander("How the Admin AI Assistant works"):
-        st.write(
-            "Describe the portfolio change you want. The assistant "
-            "will inspect the current portfolio data and prepare a "
-            "structured proposal. Nothing is changed until you "
-            "explicitly approve it."
-        )
-
     if "admin_ai_composer_draft" in st.session_state:
         st.session_state["admin_ai_composer"] = st.session_state.pop("admin_ai_composer_draft")
 
