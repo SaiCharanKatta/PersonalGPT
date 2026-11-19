@@ -495,6 +495,10 @@ def _pg_render_approved_extensions():
 
 
 def render_homepage():
+    try:
+        _pg_database.ensure_site_settings_table()
+    except Exception:
+        pass
     _pg_original_render_homepage()
     _pg_render_approved_extensions()
     _pg_render_custom_sections()
