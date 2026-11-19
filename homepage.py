@@ -423,7 +423,7 @@ _pg_original_render_homepage = render_homepage
 
 
 def _pg_render_approved_extensions():
-    data = _pg_database.get_public_profile()
+    data = _pg_database.get_public_profile() or {}
 
     intro_items = data.get("portfolio_intro", [])
     highlights = data.get("portfolio_highlights", [])
