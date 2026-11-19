@@ -492,3 +492,13 @@ def get_database_summary():
                 for table in tables}
     finally:
         conn.close()
+
+
+def set_custom_section_status(index, status):
+    sections = get_custom_sections()
+    if 0 <= index < len(sections):
+        sections[index]["status"] = status
+        payload = json.dumps(sections, ensure_ascii=False)
+        with get_connection() as conn:
+            conn.execute("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value", ("custom_sections", payload))
+    return sections
