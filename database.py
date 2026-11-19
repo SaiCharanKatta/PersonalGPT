@@ -69,6 +69,16 @@ def insert_id(conn, query, params):
         return conn.insert_id(query, params)
     return conn.execute(query, params).lastrowid
 
+def align_postgres_sequence(conn, table_name):
+    if not isinstance(conn, PostgresConnection):
+        return
+    allowed = {"admin_ai_proposals", "admin_ai_audit"}
+    if table_name not in allowed:
+        raise ValueError("Unsupported sequence table")
+    conn.execute(
+        f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM {table_name}), 0), 1), true)"
+    )
+
 
 def ensure_site_settings_table():
     with get_connection() as conn:
