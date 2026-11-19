@@ -6,6 +6,20 @@ import re
 import sqlite3
 
 
+def _pg_render_custom_sections():
+    try:
+        sections = [item for item in _pg_database.get_custom_sections() if item.get("status") == "approved"]
+    except Exception:
+        sections = []
+    for section in sections:
+        title = (section.get("name") or "").strip()
+        description = (section.get("description") or "").strip()
+        if title:
+            _pg_streamlit.markdown(f"### {title}")
+            if description:
+                _pg_streamlit.write(description)
+
+
 def render_homepage():
 
     public = database.get_public_profile()
@@ -483,3 +497,4 @@ def _pg_render_approved_extensions():
 def render_homepage():
     _pg_original_render_homepage()
     _pg_render_approved_extensions()
+    _pg_render_custom_sections()

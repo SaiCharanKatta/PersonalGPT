@@ -2,6 +2,7 @@ from postgres_backend import DATABASE_URL, PostgresConnection
 from hosting_config import DB_FILE, DATA_DIR
 
 import sqlite3
+import json
 from datetime import datetime, timezone
 
 DB_PATH = str(DB_FILE)
@@ -68,6 +69,27 @@ def insert_id(conn, query, params):
         return conn.insert_id(query, params)
     return conn.execute(query, params).lastrowid
 
+
+def ensure_site_settings_table():
+    with get_connection() as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS site_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL)")
+
+def get_custom_sections():
+    ensure_site_settings_table()
+    with get_connection() as conn:
+        row=conn.execute("SELECT setting_value FROM site_settings WHERE setting_key = ?", ("custom_sections",)).fetchone()
+    if not row: return []
+    raw=row[0] if not isinstance(row, dict) else row.get("setting_value")
+    try: return json.loads(raw) if raw else []
+    except (TypeError, ValueError): return []
+
+def save_custom_section(name, description):
+    sections=get_custom_sections()
+    sections.append({"name": name.strip(), "description": description.strip(), "status": "draft"})
+    payload=json.dumps(sections, ensure_ascii=False)
+    with get_connection() as conn:
+        conn.execute("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value", ("custom_sections", payload))
+    return sections[-1]
 
 def get_connection():
     if DATABASE_URL:

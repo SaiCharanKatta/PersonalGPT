@@ -753,11 +753,9 @@ st.header("Content management")
 
 with st.expander("＋ Add Section"):
     st.caption("Create a new portfolio section without editing Python code.")
-    new_section_name=st.text_input("Section name", key="new_section_name")
-    new_section_description=st.text_area("What should this section contain?", key="new_section_description")
     if st.button("Create section draft", key="create_section_draft"):
         if new_section_name.strip():
-            st.session_state.setdefault("custom_sections", []).append({"name": new_section_name.strip(), "description": new_section_description.strip()})
+            database.save_custom_section(new_section_name, new_section_description)
             st.success(f"Section draft created: {new_section_name.strip()}. Define its fields through the Admin AI chat.")
         else:
             st.warning("Enter a section name first.")
