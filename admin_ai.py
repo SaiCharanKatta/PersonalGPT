@@ -598,24 +598,6 @@ def reject_proposal(proposal_id, username):
         conn.close()
 
 
-def pending_proposals():
-    conn = connection()
-
-    try:
-        return conn.execute(
-            """
-            SELECT id, request_text, proposal_json,
-                   preview_text, created_at
-            FROM admin_ai_proposals
-            WHERE status='pending'
-            ORDER BY id DESC
-            """
-        ).fetchall()
-
-    finally:
-        conn.close()
-
-
 def render_admin_ai():
     # This function is called only after the existing Admin
     # authentication gate has succeeded.
