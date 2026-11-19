@@ -2,7 +2,29 @@ import os
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "") if os.getenv("PERSONAL_GPT_USE_POSTGRES") == "1" else ""
+try:
+    import streamlit as st
+    STREAMLIT_SECRETS = st.secrets
+except Exception:
+    STREAMLIT_SECRETS = {}
+
+USE_POSTGRES = str(
+    STREAMLIT_SECRETS.get(
+        "PERSONAL_GPT_USE_POSTGRES",
+        os.getenv("PERSONAL_GPT_USE_POSTGRES", "")
+    )
+).strip() == "1"
+
+DATABASE_URL = (
+    str(
+        STREAMLIT_SECRETS.get(
+            "DATABASE_URL",
+            os.getenv("DATABASE_URL", "")
+        )
+    ).strip()
+    if USE_POSTGRES
+    else ""
+)
 SCHEMA = "personalgpt_private"
 
 
