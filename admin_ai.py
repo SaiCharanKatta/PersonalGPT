@@ -9,6 +9,22 @@ from datetime import datetime
 
 MODEL_NAME = "gemini-3.5-flash-lite"
 
+CHANGE_REQUEST_HINTS = ("add", "remove", "delete", "edit", "update", "change", "move", "align", "reorder", "rename", "create", "hide", "show", "publish", "approve", "make the", "put the", "replace")
+
+def is_change_request(text):
+    normalized = (text or "").strip().lower()
+    return any(hint in normalized for hint in CHANGE_REQUEST_HINTS)
+
+def answer_general_question(text):
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return "Gemini is not configured right now. You can still submit a portfolio change request for review."
+    from google import genai
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(model=MODEL_NAME, contents=("Answer the administrator normally and conversationally. Do not create a proposal or modify content.\n\nQuestion: " + text))
+    return (response.text or "I could not generate an answer.").strip()
+
+
 CONTENT_TABLES = {
     "education",
     "experience",
@@ -660,7 +676,7 @@ def render_admin_ai():
                     raise ValueError("No usable text was extracted.")
                 st.session_state["admin_ai_composer_draft"] = (request + "\n\n" + extracted).strip()[:6000]
                 messages.append(("assistant", "Review the draft in the composer, then send it to create a proposal."))
-            elif request:
+            elif request and is_change_request(request):
                 with st.spinner("Preparing your proposal..."):
                     proposal = generate_proposal(request)
                     proposal_id = save_proposal(request, proposal)
@@ -671,6 +687,12 @@ def render_admin_ai():
             st.rerun()
         except Exception as exc:
             st.error(f"Could not process the request: {exc}")
+
+    elif request:
+        with st.spinner("Answering your question..."):
+            answer = answer_general_question(request)
+        messages.append(("assistant", answer))
+        st.rerun()
 
     # PERSONAL_GPT_ADMIN_VISUAL_PREVIEW
     with st.expander(
