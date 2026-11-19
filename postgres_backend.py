@@ -36,6 +36,23 @@ def postgres_schema():
     ).replace("TEXT DEFAULT CURRENT_TIMESTAMP", "TEXT DEFAULT (CURRENT_TIMESTAMP::text)")
 
 
+def initialize_schema():
+    """Create the PostgreSQL schema once when a fresh deployment is detected."""
+    if not DATABASE_URL:
+        return False
+    conn = raw_connection(DATABASE_URL)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT to_regclass('public.profile')")
+            if cursor.fetchone()[0] is not None:
+                return False
+        conn.execute(postgres_schema())
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
 def raw_connection(dsn):
     import psycopg
     # Supabase passwords may contain an unescaped '@'. Parse from the final

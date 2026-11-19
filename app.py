@@ -264,4 +264,10 @@ with st.container(border=True):
 # RUN SELECTED PAGE
 # ------------------------------------------------------------
 
+try:
+    from postgres_backend import initialize_schema
+    initialize_schema()
+except Exception:
+    pass
+
 navigation.run()
