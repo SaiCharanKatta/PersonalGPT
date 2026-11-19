@@ -751,6 +751,18 @@ st.caption(
 st.divider()
 st.header("Content management")
 
+with st.expander("＋ Add Section"):
+    st.caption("Create a new portfolio section without editing Python code.")
+    new_section_name=st.text_input("Section name", key="new_section_name")
+    new_section_description=st.text_area("What should this section contain?", key="new_section_description")
+    if st.button("Create section draft", key="create_section_draft"):
+        if new_section_name.strip():
+            st.session_state.setdefault("custom_sections", []).append({"name": new_section_name.strip(), "description": new_section_description.strip()})
+            st.success(f"Section draft created: {new_section_name.strip()}. Define its fields through the Admin AI chat.")
+        else:
+            st.warning("Enter a section name first.")
+
+
 st.caption(
     "Add, edit, delete and approve professional information. "
     "New entries are always saved as drafts."
@@ -877,7 +889,7 @@ for table, label in TABLES:
         st.subheader(f"{label} ({len(records)})")
 
         # Add new record
-        with st.expander(f"＋ Add new {label[:-1] if label.endswith('s') else label}"):
+        with st.expander("＋"):
             with st.form(f"add_record_{table}"):
 
                 new_data = {}
