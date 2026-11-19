@@ -621,7 +621,8 @@ def render_admin_ai():
 
     with st.bottom:
         st.caption("Admin AI · Submitted recordings and attachments are processed by Gemini.")
-        submission = st.chat_input(
+        request = ""
+    submission = st.chat_input(
             "Ask for a portfolio change",
             key="admin_ai_composer",
             accept_audio=True,
