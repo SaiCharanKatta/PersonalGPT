@@ -101,6 +101,8 @@ st.success(
 # PRIVATE ADMIN AI ASSISTANT
 # Existing authentication above protects this workspace.
 import admin_ai
+st.markdown("### AI response / review")
+st.caption("Answers and change proposals appear here after you submit a request.")
 admin_ai.render_admin_ai()
 
 if st.button("Log out"):
