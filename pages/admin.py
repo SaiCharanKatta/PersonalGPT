@@ -1,4 +1,6 @@
-from hosting_config import DB_FILE, DATA_DIR
+from hosting_config import DATA_DIR
+from postgres_backend import DATABASE_URL
+from io import BytesIO
 
 import streamlit as st
 import sys
@@ -347,38 +349,30 @@ def store_private_document(original_name, file_bytes, notes=""):
         if PRIVATE_DOCUMENT_DIR not in stored_path.parents:
             raise ValueError("Invalid private storage path.")
 
-        stored_path.write_bytes(file_bytes)
+        if not DATABASE_URL:
+            stored_path.write_bytes(file_bytes)
 
         try:
-
-            conn.execute(
-                """
-                INSERT INTO resume_documents (
-                    original_filename,
-                    stored_filename,
-                    storage_path,
-                    file_type,
-                    file_size,
-                    file_hash,
-                    version_number,
-                    review_status,
-                    notes
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    original_filename,
-                    stored_filename,
-                    str(stored_path),
-                    extension,
-                    len(file_bytes),
-                    file_hash,
-                    version_number,
-                    "pending",
-                    str(notes or "").strip() or None
-                )
+            file_column = ", file_bytes" if DATABASE_URL else ""
+            file_parameter = ", ?" if DATABASE_URL else ""
+            params = (
+                original_filename, stored_filename,
+                stored_filename if DATABASE_URL else str(stored_path),
+                extension, len(file_bytes), file_hash, version_number,
+                "pending", str(notes or "").strip() or None,
             )
-
+            if DATABASE_URL:
+                params += (file_bytes,)
+            conn.execute(
+                f"""
+                INSERT INTO resume_documents (
+                    original_filename, stored_filename, storage_path, file_type,
+                    file_size, file_hash, version_number, review_status, notes{file_column}
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?{file_parameter})
+                """,
+                params,
+            )
             conn.commit()
 
         except Exception:
@@ -389,11 +383,11 @@ def store_private_document(original_name, file_bytes, notes=""):
     return version_number
 
 
-def extract_pdf_text(pdf_path):
+def extract_pdf_text(document_bytes):
 
     try:
         from pypdf import PdfReader
-        reader = PdfReader(str(pdf_path))
+        reader = PdfReader(BytesIO(document_bytes))
         return "\n\n".join(
             page.extract_text() or ""
             for page in reader.pages
@@ -402,7 +396,7 @@ def extract_pdf_text(pdf_path):
     except ImportError:
         try:
             from PyPDF2 import PdfReader
-            reader = PdfReader(str(pdf_path))
+            reader = PdfReader(BytesIO(document_bytes))
             return "\n\n".join(
                 page.extract_text() or ""
                 for page in reader.pages
@@ -629,11 +623,27 @@ else:
                 and document_path.is_file()
             )
 
-            if safe_path:
+            document_bytes = None
+            if DATABASE_URL:
+                try:
+                    with database.get_connection() as conn:
+                        stored = conn.execute(
+                            "SELECT file_bytes FROM resume_documents WHERE id = ?",
+                            (document_id,),
+                        ).fetchone()
+                    if stored:
+                        document_bytes = bytes(stored[0])
+                except Exception:
+                    st.error("The stored file could not be read.")
+            elif safe_path:
+                try:
+                    document_bytes = document_path.read_bytes()
+                except OSError:
+                    st.error("The stored file could not be read.")
+
+            if document_bytes is not None:
 
                 try:
-
-                    document_bytes = document_path.read_bytes()
 
                     st.download_button(
                         "Download original file",
@@ -659,8 +669,8 @@ else:
                     key=f"extract_pdf_{document_id}"
                 ):
 
-                    if safe_path:
-                        extracted = extract_pdf_text(document_path)
+                    if document_bytes is not None:
+                        extracted = extract_pdf_text(document_bytes)
                         st.session_state[
                             f"extracted_pdf_{document_id}"
                         ] = extracted
@@ -700,13 +710,14 @@ else:
 
                 try:
 
-                    if not safe_path:
+                    if not DATABASE_URL and not safe_path:
                         raise ValueError(
                             "Deletion blocked: file path is not verified "
                             "inside the private document folder."
                         )
 
-                    document_path.unlink()
+                    if not DATABASE_URL:
+                        document_path.unlink()
 
                     with database.get_connection() as conn:
                         conn.execute(
