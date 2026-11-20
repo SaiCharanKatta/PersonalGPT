@@ -668,12 +668,13 @@ def render_admin_ai():
                     ("user", request),
                     ("assistant", f"Proposal #{proposal_id}. " + str(proposal.get("preview") or proposal.get("summary") or "Review the proposal below.")),
                 ])
+            elif request:
+                with st.spinner("Answering your question..."):
+                    answer = answer_general_question(request)
+                messages.extend([
+                    ("user", request),
+                    ("assistant", answer),
+                ])
             st.rerun()
         except Exception as exc:
             st.error(f"Could not process the request: {exc}")
-
-    elif request:
-        with st.spinner("Answering your question..."):
-            answer = answer_general_question(request)
-        messages.append(("assistant", answer))
-        st.rerun()
